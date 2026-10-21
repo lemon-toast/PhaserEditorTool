@@ -15,6 +15,7 @@ SlotClient와 홀덤·맞고 게임을 개발할 때, 좌표 코드를 수정하
 
 - 이미지, Spine, Phaser 파티클을 같은 화면에서 확인
 - 부모·자식 계층 표시와 노드별 active on/off
+- 독립 패널 도킹·탭·분할·플로팅, 크기 조절과 워크스페이스 저장·복원
 - 부모 비활성화가 모든 자식에 반영되는 미리보기
 - 화면에서 선택·이동하고 Inspector에서 위치·크기·배율 수정
 - Spine 애니메이션 선택·재생·일시정지, 파티클 재생·정지·재시작
@@ -32,6 +33,7 @@ SlotClient와 홀덤·맞고 게임을 개발할 때, 좌표 코드를 수정하
 | [개발 순서](docs/ROADMAP.md) | 단계별 작업과 검증 항목 |
 | [SlotClient 조사](docs/SLOTCLIENT_INTEGRATION.md) | 실제 코드에서 확인한 구조와 연동 시 확인할 사항 |
 | [연출 및 게임 교환 규격](docs/ANIMATION_AND_INTERCHANGE.md) | 복합 연출, 공통 실행 코드, import/export와 게임 적용 계약 |
+| [패널·도킹 워크스페이스](docs/DOCKING_WORKSPACE.md) | 패널 이동·분할·플로팅·별도 창, 배치 저장과 복구 |
 
 ## 기본 원칙
 

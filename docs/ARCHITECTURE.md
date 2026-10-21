@@ -4,7 +4,7 @@
 
 ## 실행 구조
 
-로컬 웹 앱으로 시작합니다. 편집 UI는 TypeScript와 Vue, Scene은 Phaser를 사용하는 방향입니다. Vite 개발 서버에 프로젝트 연결과 파일 저장을 위한 로컬 API를 둡니다. Electron 패키징은 필요성이 확인된 뒤 검토합니다.
+로컬 웹 앱으로 렌더링 검증을 시작합니다. 편집 UI는 TypeScript와 Vue, Scene은 Phaser를 사용하는 방향입니다. Vite 개발 서버에 프로젝트 연결과 파일 저장을 위한 로컬 API를 둡니다. 별도 OS 창 도킹·다중 모니터 요구를 위해 Electron 등 데스크톱 호스트 구현·패키징을 필수 단계에 포함합니다. 호스트 선택은 창 간 렌더링 상태 보존을 검증한 뒤 확정합니다.
 
 ```text
 Hierarchy / Inspector / Assets / Toolbar
@@ -26,6 +26,8 @@ Document Store를 장면의 기준 데이터로 삼습니다. Phaser 객체의 �
 | 구성 | 책임 |
 | --- | --- |
 | Editor Shell | 패널, 툴바, 단축키, 오류 표시 |
+| Workspace Manager | 도킹 split/tab 트리·플로팅·창 배치, 사용자별 저장·복원·복구. 장면 데이터와 분리 |
+| Desktop Host | 별도 창·모니터 정보·파일 접근, 창 간 편집 명령 전달과 상태 동기화 |
 | Document Store | 문서 검증, 선택, 편집 명령, 변경 여부, 실행 취소 |
 | Hierarchy Service | 부모 변경, 순서, active 계산, 변환 계산 |
 | Preview Bridge | 노드 ID와 Phaser 객체 연결, 변경분 반영, hit test, 재생 제어 |
@@ -34,6 +36,14 @@ Document Store를 장면의 기준 데이터로 삼습니다. Phaser 객체의 �
 | Local Project Service | 등록한 프로젝트 내 파일 조회 및 에디터 문서 저장 |
 | Animation Runtime | 공통 clock, 연출 트랙·등록 코드 실행, reset·cancel·재생 상태 관리. 게임과 공유 |
 | Game Interchange | 게임용 export/import 검증, 버전·ID·타깃·지원 기능 확인, 게임 적용 어댑터 |
+
+## 도킹과 창 수명주기
+
+여섯 독립 패널을 Panel Registry에 stable panel ID로 등록합니다. Workspace Manager는 패널 내용을 소유하지 않고 위치·크기·탭·창 배치만 관리합니다. 패널 이동이나 닫기가 Document Store와 Animation Runtime을 해제해서는 안 됩니다.
+
+별도 창도 하나의 논리적 문서를 사용합니다. 창 간 편집은 명령과 순서가 있는 상태 갱신으로 전달하고 활성 clock은 하나만 유지합니다. Scene 이동 시 캔버스 재생성이 필요하면 재생을 잠시 멈추고 snapshot에서 동일 시점으로 복구합니다. 지원 여부를 확인하지 않고 DOM 또는 WebGL context가 창 간 그대로 이동한다고 가정하지 않습니다.
+
+구체적인 배치 데이터, 창 종료·화면 밖 복구와 검수 항목은 [패널·도킹 워크스페이스](DOCKING_WORKSPACE.md)에 정의합니다. 도킹 라이브러리는 분할·탭·플로팅·다중 창, Vue 연결, 직렬화·복구, 라이선스를 실제 검증한 뒤 선정합니다.
 
 ## 장면 데이터
 
