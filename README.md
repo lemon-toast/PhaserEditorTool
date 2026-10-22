@@ -7,9 +7,18 @@ SlotClient와 홀덤·맞고 게임을 개발할 때, 좌표 코드를 수정하
 ## 현재 상태
 
 - GitHub: [lemon-toast/PhaserEditorTool](https://github.com/lemon-toast/PhaserEditorTool)
-- 단계: 요구사항 및 설계 문서 작성
-- 실행 가능한 에디터와 게임 연동 코드는 아직 구현하지 않았습니다.
-- 최초 연동 대상으로 SlotClient를 검토했습니다. 홀덤·맞고는 실제 프로젝트 구조 확인 후 연결합니다.
+- 단계: 개발 버전 0.1 구현 및 Windows Chrome 검증
+- 실행 가능한 도킹 에디터, 이미지·Spine·파티클 미리보기와 SlotClient layout 가져오기를 구현했습니다.
+- 실제 게임 역적용·코드 연출·데스크톱 별도 창·macOS 검증은 남아 있습니다. [구현 현황과 제한](docs/IMPLEMENTATION_STATUS.md)을 확인하세요.
+
+## 실행
+
+```sh
+npm ci
+npm run dev
+```
+
+`http://127.0.0.1:5173`에서 실행합니다. **슬롯 배치**를 누르면 이웃 폴더의 `SlotClient/games/SLOT_1002` layout을 가져옵니다. 기본 화면은 폭죽과 팝업·머니 이동을 확인하는 연출 예제입니다. 에셋 패널에서 폴더를 연결하거나 이미지·Spine을 클릭하여 추가할 수 있습니다.
 
 ## 1차 목표
 
@@ -34,6 +43,7 @@ SlotClient와 홀덤·맞고 게임을 개발할 때, 좌표 코드를 수정하
 | [SlotClient 조사](docs/SLOTCLIENT_INTEGRATION.md) | 실제 코드에서 확인한 구조와 연동 시 확인할 사항 |
 | [연출 및 게임 교환 규격](docs/ANIMATION_AND_INTERCHANGE.md) | 복합 연출, 공통 실행 코드, import/export와 게임 적용 계약 |
 | [패널·도킹 워크스페이스](docs/DOCKING_WORKSPACE.md) | 패널 이동·분할·플로팅·별도 창, 배치 저장과 복구 |
+| [구현 현황](docs/IMPLEMENTATION_STATUS.md) | 실행·검증 방법, 구현된 기능과 남은 작업 |
 
 ## 기본 원칙
 

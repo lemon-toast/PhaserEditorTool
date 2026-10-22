@@ -10,3 +10,5 @@ coverage/
 Thumbs.db
 *.local.json
 local-projects.json
+test-results/
+playwright-report/
