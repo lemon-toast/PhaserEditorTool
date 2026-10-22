@@ -1,4 +1,11 @@
-import { createNode, validateDocument, type SceneDocument, type SceneNode } from '../core/document';
+import {
+  clone,
+  createNode,
+  validateDocument,
+  type SceneDocument,
+  type SceneNode,
+} from '../core/document';
+import { layoutFingerprint } from '../integration/slotRuntime';
 
 interface Art {
   file: string;
@@ -233,5 +240,12 @@ export function convertSlotLayout(raw: {
       text('로딩 문구', t.text, t.x, t.y, t.size, `loading.text.${i}`, 'loading'),
     );
   }
+  doc.source = {
+    adapter: 'slot-client',
+    gameCode: 'SLOT_1002',
+    orientation: raw.designSize.width > raw.designSize.height ? 'landscape' : 'portrait',
+    fingerprint: layoutFingerprint(raw.layout),
+    baseline: clone({ roots: doc.roots, nodes: doc.nodes }),
+  };
   return validateDocument(doc);
 }

@@ -19,6 +19,9 @@ import {
   edit,
   importFile,
   importSlotLayout,
+  downloadGamePackage,
+  applyToSlotGame,
+  importGamePackage,
   log,
   redo,
   refreshAssets,
@@ -219,7 +222,10 @@ onBeforeUnmount(() => {
           ($event.target as HTMLInputElement).value = '';
         "
       />
-      <button @click="importSlotLayout">슬롯 배치</button><span class="toolbar-separator"></span
+      <button @click="importSlotLayout">슬롯 배치</button>
+      <button @click="downloadGamePackage">게임용 내보내기</button>
+      <button @click="applyToSlotGame" :disabled="!state.doc.source">슬롯에 적용</button>
+      <button @click="importGamePackage">게임 적용본</button><span class="toolbar-separator"></span
       ><button @click="undo" :disabled="!state.canUndo" title="Ctrl/⌘ Z">↶ 실행 취소</button
       ><button @click="redo" :disabled="!state.canRedo" title="Ctrl/⌘ Shift Z">↷ 다시 실행</button
       ><span class="toolbar-separator"></span>

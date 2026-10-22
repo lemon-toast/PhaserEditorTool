@@ -129,6 +129,7 @@ input[type='range'] {
   flex: 1;
 }
 .main-toolbar {
+  overflow-x: auto;
   height: 47px;
   display: flex;
   align-items: center;

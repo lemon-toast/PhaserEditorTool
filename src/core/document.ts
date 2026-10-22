@@ -60,6 +60,13 @@ export interface SceneDocument {
   roots: string[];
   nodes: Record<string, SceneNode>;
   animations: Animation[];
+  source?: {
+    adapter: 'slot-client';
+    gameCode: 'SLOT_1002';
+    orientation: 'landscape' | 'portrait';
+    fingerprint: string;
+    baseline: { roots: string[]; nodes: Record<string, SceneNode> };
+  };
 }
 export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 export function createNode(kind: Kind, name = ''): SceneNode {

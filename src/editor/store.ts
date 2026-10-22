@@ -12,6 +12,8 @@ import {
   type SceneNode,
 } from '../core/document';
 import { convertSlotLayout } from '../adapters/slotClient';
+import { exportSlotDocument } from '../integration/exportSlot';
+import { validateSlotPackage } from '../integration/slotRuntime';
 
 export interface Asset {
   kind: 'image' | 'spine';
@@ -208,9 +210,62 @@ export async function importFile(file?: File) {
   if (state.dirty && !confirm('저장하지 않은 변경이 있습니다. 버리고 불러올까요?')) return;
   try {
     if (file.size > 10 * 1024 * 1024) throw new Error('10MB 이하 문서만 열 수 있습니다.');
-    loadDocument(JSON.parse(await file.text()));
+    const input = JSON.parse(await file.text());
+    loadDocument(
+      input?.format === 'phaser-editor/slot-layout'
+        ? validateSlotPackage(input).editorDocument
+        : input,
+    );
   } catch (e) {
     log((e as Error).message, '오류');
+  }
+}
+export function downloadGamePackage() {
+  try {
+    const pack = exportSlotDocument(state.doc),
+      url = URL.createObjectURL(
+        new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' }),
+      );
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `editor.${pack.orientation}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    log(
+      `게임용 내보내기 완료: ${pack.patches.length}개 배치 수정. SlotClient의 games/SLOT_1002/layout에 넣고 새로고침하세요.`,
+    );
+  } catch (error) {
+    log((error as Error).message, '오류');
+  }
+}
+export async function applyToSlotGame() {
+  try {
+    const pack = exportSlotDocument(state.doc);
+    const r = await fetch('/api/slot-game-package', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Editor-Request': '1' },
+        body: JSON.stringify(pack),
+      }),
+      data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    log(
+      `SlotClient에 ${data.patches}개 수정 저장 완료. 게임을 새로고침하면 적용됩니다. 기존 파일은 .bak으로 보관합니다.`,
+    );
+  } catch (error) {
+    log((error as Error).message, '오류');
+  }
+}
+export async function importGamePackage() {
+  if (state.dirty && !confirm('수정한 장면을 버리고 게임 적용본을 열까요?')) return;
+  try {
+    const orientation =
+      state.doc.designSize.width >= state.doc.designSize.height ? 'landscape' : 'portrait';
+    const r = await fetch(`/api/slot-game-package?orientation=${orientation}`),
+      data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    loadDocument(validateSlotPackage(data).editorDocument);
+  } catch (error) {
+    log((error as Error).message, '오류');
   }
 }
 export async function refreshAssets() {
