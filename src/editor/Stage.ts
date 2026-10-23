@@ -1,14 +1,8 @@
 import Phaser from 'phaser';
 import { SpinePlugin, type SpineGameObject } from '@esotericsoftware/spine-phaser-v3';
-import {
-  activeInHierarchy,
-  flatten,
-  inverse,
-  parentOf,
-  world,
-  type SceneNode,
-} from '../core/document';
-import { log, patchNode, renderedDocument, state } from './store';
+import { activeInHierarchy, flatten, world, type SceneNode } from '../core/document';
+import { edit, log, renderedDocument, state, selectedIds, selectNode } from './store';
+import { selectionRoots, translatedPositions } from '../core/placement';
 
 const assetUrl = (path: string) => `/api/asset?path=${encodeURIComponent(path)}`;
 type Visual =
@@ -53,9 +47,20 @@ export class EditorScene extends Phaser.Scene {
   viewZoom = 1;
   resetVersion = -1;
   alive = true;
-  drag?: { id: string; x: number; y: number; px: number; py: number };
-  constructor() {
+  drag?: {
+    ids: string[];
+    px: number;
+    py: number;
+    anchorX: number;
+    anchorY: number;
+    positions: { id: string; x: number; y: number }[];
+  };
+  constructor(private onViewZoomChange: (zoom: number) => void = () => {}) {
     super('editor');
+  }
+  fitToView() {
+    this.viewZoom = 1;
+    this.onViewZoomChange(this.viewZoom);
   }
   create() {
     const g = this.make.graphics({ x: 0, y: 0 });
@@ -75,22 +80,21 @@ export class EditorScene extends Phaser.Scene {
         if (!entry?.visual || !activeInHierarchy(doc, id)) continue;
         const bounds = boundsOf(entry.visual);
         if (bounds.contains(p.worldX, p.worldY)) {
-          state.selected = id;
-          let inv;
-          try {
-            inv = inverse(world(doc, parentOf(doc, id)));
-          } catch (error) {
-            log((error as Error).message, '오류');
+          const event = p.event as MouseEvent;
+          if (event.ctrlKey || event.metaKey || event.shiftKey) {
+            selectNode(id, true);
             return;
           }
-          const x = inv[0] * p.worldX + inv[2] * p.worldY + inv[4],
-            y = inv[1] * p.worldX + inv[3] * p.worldY + inv[5];
+          if (!selectedIds.value.includes(id)) selectNode(id);
+          const ids = selectionRoots(doc, selectedIds.value);
+          const anchor = world(doc, ids.includes(id) ? id : ids[ids.length - 1]);
           this.drag = {
-            id,
-            x: doc.nodes[id].transform.x,
-            y: doc.nodes[id].transform.y,
-            px: x,
-            py: y,
+            ids,
+            px: p.worldX,
+            py: p.worldY,
+            anchorX: anchor[4],
+            anchorY: anchor[5],
+            positions: [],
           };
           return;
         }
@@ -99,38 +103,45 @@ export class EditorScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       if (!this.drag || !p.isDown) return;
       const d = this.drag;
-      if (!state.doc.nodes[d.id]) {
+      if (state.timeline || d.ids.some((id) => !state.doc.nodes[id])) {
         this.drag = undefined;
         return;
       }
-      let inv;
       try {
-        inv = inverse(world(state.doc, parentOf(state.doc, d.id)));
-      } catch {
+        let dx = p.worldX - d.px,
+          dy = p.worldY - d.py;
+        if (state.snapEnabled) {
+          const step = Math.max(1, state.snapSize);
+          dx = Math.round((d.anchorX + dx) / step) * step - d.anchorX;
+          dy = Math.round((d.anchorY + dy) / step) * step - d.anchorY;
+        }
+        d.positions = translatedPositions(state.doc, d.ids, dx, dy);
+        for (const pos of d.positions)
+          this.entries.get(pos.id)?.container.setPosition(pos.x, pos.y);
+      } catch (error) {
+        log((error as Error).message, '오류');
         this.drag = undefined;
-        return;
       }
-      const e = this.entries.get(d.id);
-      e?.container.setPosition(
-        d.x + inv[0] * p.worldX + inv[2] * p.worldY + inv[4] - d.px,
-        d.y + inv[1] * p.worldX + inv[3] * p.worldY + inv[5] - d.py,
-      );
     });
     const end = () => {
       if (!this.drag) return;
-      const d = this.drag,
-        e = this.entries.get(d.id);
+      const d = this.drag;
       this.drag = undefined;
-      if (e)
-        patchNode(d.id, (n) => {
-          n.transform.x = Math.round(e.container.x * 10) / 10;
-          n.transform.y = Math.round(e.container.y * 10) / 10;
+      if (d.positions.length && !state.timeline)
+        edit((doc) => {
+          for (const pos of d.positions) {
+            const n = doc.nodes[pos.id];
+            if (!n) throw new Error('이동 중 선택 객체가 변경되었습니다.');
+            n.transform.x = Math.round(pos.x * 1000) / 1000;
+            n.transform.y = Math.round(pos.y * 1000) / 1000;
+          }
         });
     };
     this.input.on('pointerup', end);
     this.input.on('pointerupoutside', end);
     this.input.on('wheel', (_p: unknown, _a: unknown, _dx: number, dy: number) => {
       this.viewZoom = Phaser.Math.Clamp(this.viewZoom * (dy > 0 ? 0.9 : 1.1), 0.15, 4);
+      this.onViewZoomChange(this.viewZoom);
     });
     this.events.once('shutdown', () => {
       this.alive = false;
@@ -188,6 +199,14 @@ export class EditorScene extends Phaser.Scene {
         if (n.slice) {
           const [top, right, bottom, left] = n.slice,
             s = n.sliceScale || 1;
+          const texture = this.textures.getFrame(key);
+          if (
+            left + right > texture.width ||
+            top + bottom > texture.height ||
+            (left + right) * s > n.width ||
+            (top + bottom) * s > n.height
+          )
+            throw new Error('9-slice 경계가 원본 이미지 또는 표시 크기를 넘습니다.');
           visual = this.add
             .nineslice(0, 0, key, undefined, n.width / s, n.height / s, left, right, top, bottom)
             .setScale(s)
@@ -268,9 +287,10 @@ export class EditorScene extends Phaser.Scene {
       .lineStyle(1, 0x465468)
       .strokeRect(0, 0, doc.designSize.width, doc.designSize.height);
     this.frame.lineStyle(0.5, 0x252e3d);
-    for (let x = 80; x < doc.designSize.width; x += 80)
+    const grid = state.snapEnabled ? Math.max(1, state.snapSize) : 80;
+    for (let x = grid; x < doc.designSize.width; x += grid)
       this.frame.lineBetween(x, 0, x, doc.designSize.height);
-    for (let y = 80; y < doc.designSize.height; y += 80)
+    for (let y = grid; y < doc.designSize.height; y += grid)
       this.frame.lineBetween(0, y, doc.designSize.width, y);
     if (this.resetVersion !== state.reset) {
       this.resetVersion = state.reset;
@@ -329,7 +349,7 @@ export class EditorScene extends Phaser.Scene {
           .setAlpha(t.alpha)
           .setScale(t.scaleX, t.scaleY)
           .setAngle(t.rotation);
-        if (this.drag?.id !== id) e.container.setPosition(t.x, t.y);
+        if (!this.drag?.ids.includes(id)) e.container.setPosition(t.x, t.y);
         if (!parent) e.container.setDepth(count++);
         else parent.bringToTop(e.container);
         const v = e.visual;
@@ -345,20 +365,22 @@ export class EditorScene extends Phaser.Scene {
       });
     walk(doc.roots);
     this.overlay.clear();
-    const e = this.entries.get(state.selected);
-    if (e && activeInHierarchy(doc, state.selected)) {
-      const bounds = e.visual && boundsOf(e.visual);
-      this.overlay.lineStyle(2 / fit, 0x80e0c7);
-      if (bounds) this.overlay.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-      const m = world(doc, state.selected);
-      this.overlay
-        .lineBetween(m[4] - 10 / fit, m[5], m[4] + 10 / fit, m[5])
-        .lineBetween(m[4], m[5] - 10 / fit, m[4], m[5] + 10 / fit);
+    for (const id of selectedIds.value) {
+      const e = this.entries.get(id);
+      if (e && activeInHierarchy(doc, id)) {
+        const bounds = e.visual && boundsOf(e.visual);
+        this.overlay.lineStyle(2 / fit, 0x80e0c7);
+        if (bounds) this.overlay.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        const m = e.container.getWorldTransformMatrix();
+        this.overlay
+          .lineBetween(m.tx - 10 / fit, m.ty, m.tx + 10 / fit, m.ty)
+          .lineBetween(m.tx, m.ty - 10 / fit, m.tx, m.ty + 10 / fit);
+      }
     }
   }
 }
-export function createStage(element: HTMLElement) {
-  const scene = new EditorScene();
+export function createStage(element: HTMLElement, onViewZoomChange?: (zoom: number) => void) {
+  const scene = new EditorScene(onViewZoomChange);
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: element,

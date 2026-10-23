@@ -3,6 +3,8 @@ test('계층·편집·JSON 교환·도킹 복원과 실제 에셋 렌더링', as
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
+  await expect(page.locator('canvas')).toHaveCount(0);
+  await page.getByRole('button', { name: '예제 연출 열기' }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('[data-node="money"]')).toBeVisible();
   const parent = page.getByRole('checkbox', { name: '승자승 이벤트 활성', exact: true }),
@@ -12,13 +14,19 @@ test('계층·편집·JSON 교환·도킹 복원과 실제 에셋 렌더링', as
   await expect(page.locator('[data-node="money"]')).toHaveClass(/inactive/);
   await parent.check();
   await page.locator('[data-node="money"]').click();
+  await expect(page.getByRole('region', { name: '게임 적용 범위' })).toContainText(
+    '장면 저장 전용',
+  );
+  await expect(page.getByRole('region', { name: '게임 적용 범위' })).toContainText(
+    '현재 화면: 게임 적용 제한',
+  );
   await page.getByRole('spinbutton', { name: '위치 X', exact: true }).fill('125');
   await page.getByRole('spinbutton', { name: '위치 X', exact: true }).press('Tab');
   await expect(page.getByRole('spinbutton', { name: '위치 X', exact: true })).toHaveValue('125');
   await page.getByRole('button', { name: '↶ 실행 취소' }).click();
   await expect(page.getByRole('spinbutton', { name: '위치 X', exact: true })).toHaveValue('0');
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: '↧ 저장 / 내보내기' }).click();
+  await page.getByRole('button', { name: '작업 저장' }).click();
   const downloaded = await downloadPromise;
   expect(downloaded.suggestedFilename()).toContain('.scene.json');
   const downloadPath = await downloaded.path();
@@ -49,8 +57,9 @@ test('계층·편집·JSON 교환·도킹 복원과 실제 에셋 렌더링', as
   await page.getByLabel('패널 열기', { exact: true }).selectOption('console');
   expect(await page.locator('.log-row.error').count()).toBe(0);
   expect(errors).toEqual([]);
-  await page.getByRole('button', { name: '↧ 저장 / 내보내기' }).click();
+  await page.getByRole('button', { name: '작업 저장' }).click();
   await page.reload();
+  await page.getByRole('button', { name: '예제 연출 열기' }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await page.getByLabel('패널 열기', { exact: true }).selectOption('console');
   await expect(page.locator('.log-row.error')).toHaveCount(0);
@@ -59,15 +68,16 @@ test('SlotClient 원본 layout 가로·세로 가져오기', async ({ page }) =>
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await page.getByRole('button', { name: '슬롯 배치', exact: true }).click();
+  await page.getByRole('button', { name: '프로젝트 SlotClient', exact: true }).click();
+  await page.getByRole('button', { name: '선택한 화면 열기 →', exact: true }).click();
   await expect(page.locator('[data-node="background"]')).toBeVisible();
   await page.waitForTimeout(2500);
   await page.getByLabel('패널 열기', { exact: true }).selectOption('console');
   await expect(page.locator('.log-row.error')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/slot-landscape.png', fullPage: true });
-  await page.getByLabel('화면 방향', { exact: true }).selectOption('portrait');
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: '슬롯 배치', exact: true }).click();
+  await page.getByRole('button', { name: '프로젝트 / 화면 선택', exact: true }).click();
+  await page.getByRole('button', { name: '화면 SLOT_1002 · 세로 화면', exact: true }).click();
+  await page.getByRole('button', { name: '선택한 화면 열기 →', exact: true }).click();
   await expect(page.locator('.document-name')).toContainText('세로');
   await page.waitForTimeout(2000);
   await expect(page.locator('.log-row.error')).toHaveCount(0);

@@ -12,3 +12,4 @@ Thumbs.db
 local-projects.json
 test-results/
 playwright-report/
+.idea/

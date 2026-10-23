@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "desktop": "electron desktop/main.mjs",
+    "test:desktop": "playwright test --config playwright.desktop.config.ts",
     "connect:slot": "node scripts/install-slot-bridge.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run --exclude tests/browser/**",
+    "test": "vitest run --exclude tests/browser/** --exclude tests/desktop/**",
     "test:browser": "playwright test",
     "preview": "vite preview --host 127.0.0.1"
   },
@@ -22,6 +24,7 @@
     "@playwright/test": "1.64.1",
     "@types/node": "22.15.30",
     "@vitejs/plugin-vue": "5.2.4",
+    "electron": "45.0.0",
     "prettier": "3.5.3",
     "typescript": "5.8.3",
     "vite": "6.3.5",

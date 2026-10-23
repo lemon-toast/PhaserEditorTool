@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { convertSlotLayout } from '../src/adapters/slotClient';
 import { clone } from '../src/core/document';
 import { exportSlotDocument } from '../src/integration/exportSlot';
+import { gameExportStatus, nodeGameSupport } from '../src/integration/gameSupport';
+import { importFile, loadDocument, state } from '../src/editor/store';
 import {
   applySlotPackage,
   layoutFingerprint,
@@ -22,6 +24,41 @@ function fixture() {
 }
 const context = { gameCode: 'SLOT_1002', orientation: 'landscape', width: 1920, height: 1080 };
 describe('슬롯 게임 데이터 역적용', () => {
+  it('작업 로드와 게임 데이터 Import는 형식과 저장 상태를 분리한다', async () => {
+    const doc = convertSlotLayout(fixture());
+    const pack = exportSlotDocument(doc);
+    const file = new File([JSON.stringify(pack)], 'game.json');
+    loadDocument(doc);
+    await importFile(file, 'work');
+    expect(state.logs.at(-1)?.message).toContain('데이터 Import');
+    expect(state.dirty).toBe(false);
+    await importFile(file, 'data');
+    expect(state.dirty).toBe(true);
+    exportSlotDocument(state.doc);
+    expect(state.dirty).toBe(true);
+    loadDocument(doc);
+    await importFile(new File([JSON.stringify(doc)], 'work.scene.json'), 'work');
+    expect(state.dirty).toBe(false);
+  });
+  it('편집 중 적용 상태가 내보내기 제한과 복구를 따라간다', () => {
+    const doc = convertSlotLayout(fixture());
+    expect(nodeGameSupport(doc, 'art.front.0').supported).toContain('원점');
+    expect(gameExportStatus(doc).ready).toBe(true);
+    doc.nodes['art.front.0'].asset = 'image/other.png';
+    expect(gameExportStatus(doc).ready).toBe(false);
+    expect(gameExportStatus(doc).message).toContain('에셋');
+    doc.nodes['art.front.0'].asset = 'image/title.png';
+    expect(gameExportStatus(doc).ready).toBe(true);
+    doc.designSize.width = 1000;
+    expect(gameExportStatus(doc).message).toContain('해상도');
+  });
+  it('미연결 문서와 새 객체를 게임 적용 지원으로 표시하지 않는다', () => {
+    const doc = convertSlotLayout(fixture());
+    expect(nodeGameSupport(doc, 'new-object').title).toContain('미지원');
+    delete doc.source;
+    expect(nodeGameSupport(doc, 'art.front.0').title).toBe('장면 저장 전용');
+    expect(gameExportStatus(doc).ready).toBe(false);
+  });
   it('기본 숨김 프리셋은 게임 상태를 덮어쓰지 않는다', () => {
     const raw = fixture(),
       doc = convertSlotLayout(raw),

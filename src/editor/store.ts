@@ -1,6 +1,9 @@
 import { computed, reactive } from 'vue';
 import {
   clone,
+  ensureScreen,
+  layoutData,
+  switchLayoutMode,
   createNode,
   demoDocument,
   evaluate,
@@ -14,6 +17,8 @@ import {
 import { convertSlotLayout } from '../adapters/slotClient';
 import { exportSlotDocument } from '../integration/exportSlot';
 import { validateSlotPackage } from '../integration/slotRuntime';
+import type { EditorProject, ProjectScene } from '../core/projects';
+import { alignOrigins } from '../core/placement';
 
 export interface Asset {
   kind: 'image' | 'spine';
@@ -28,6 +33,9 @@ const initial = demoDocument();
 export const state = reactive({
   doc: initial,
   selected: 'title',
+  selection: [] as string[],
+  snapEnabled: false,
+  snapSize: 10,
   revision: 0,
   saved: JSON.stringify(initial),
   assets: [] as Asset[],
@@ -44,10 +52,30 @@ export const state = reactive({
   dirty: false,
   canUndo: false,
   canRedo: false,
+  projectPickerOpen: true,
+  hasOpenDocument: false,
+  activeProject: null as EditorProject | null,
+  activeScene: null as ProjectScene | null,
 });
 let past: SceneDocument[] = [],
   future: SceneDocument[] = [];
 export const selected = computed(() => state.doc.nodes[state.selected]);
+export const selectedIds = computed(() =>
+  (state.selection.includes(state.selected) ? state.selection : [state.selected]).filter(
+    (id) => !!state.doc.nodes[id],
+  ),
+);
+export function selectNode(id: string, toggle = false) {
+  const ids = toggle ? [...selectedIds.value] : [];
+  const index = ids.indexOf(id);
+  if (index >= 0) ids.splice(index, 1);
+  else if (state.doc.nodes[id]) ids.push(id);
+  state.selection = ids;
+  state.selected = ids[ids.length - 1] || '';
+}
+export function alignSelection(axis: 'x' | 'y') {
+  edit((doc) => alignOrigins(doc, selectedIds.value, axis, state.selected));
+}
 export const animation = computed(() =>
   state.doc.animations.find((a) => a.id === state.animationId),
 );
@@ -76,14 +104,25 @@ export function edit(action: (doc: SceneDocument) => void) {
   try {
     action(draft);
     const valid = validateDocument(draft);
-    if (JSON.stringify(valid) === JSON.stringify(before)) return;
+    if (JSON.stringify(valid) === JSON.stringify(before)) return true;
     past.push(before);
     if (past.length > 80) past.shift();
     future = [];
     state.doc = valid;
     changed();
+    return true;
   } catch (e) {
     log((e as Error).message, '오류');
+    return false;
+  }
+}
+export function selectLayoutMode(id: string) {
+  if (id === state.doc.screen?.activeMode) return;
+  stop();
+  state.selection = [];
+  if (edit((doc) => switchLayoutMode(doc, id))) {
+    state.selected = state.doc.roots[0] || '';
+    state.animationId = state.doc.animations[0]?.id || '';
   }
 }
 export function patchNode(id: string, action: (node: SceneNode) => void) {
@@ -97,6 +136,8 @@ export function undo() {
   future.push(clone(state.doc));
   state.doc = past.pop()!;
   if (!state.doc.nodes[state.selected]) state.selected = '';
+  if (!state.doc.animations.some((a) => a.id === state.animationId))
+    state.animationId = state.doc.animations[0]?.id || '';
   changed();
 }
 export function redo() {
@@ -104,6 +145,9 @@ export function redo() {
   stop();
   past.push(clone(state.doc));
   state.doc = future.pop()!;
+  if (!state.doc.nodes[state.selected]) state.selected = '';
+  if (!state.doc.animations.some((a) => a.id === state.animationId))
+    state.animationId = state.doc.animations[0]?.id || '';
   changed();
 }
 export function add(kind: Kind, asset?: Asset) {
@@ -183,6 +227,7 @@ export function duplicate() {
 export function loadDocument(input: unknown) {
   const doc = validateDocument(input);
   stop();
+  state.selection = [];
   state.doc = doc;
   state.selected = doc.roots[0] || '';
   state.animationId = doc.animations[0]?.id || '';
@@ -203,19 +248,27 @@ export function download() {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   state.saved = JSON.stringify(doc);
   state.dirty = false;
-  log('기본 Transform과 연출 정의를 JSON으로 내보냈습니다. 게임 연결 검증은 별도입니다.');
+  log('에디터 작업을 .scene.json 파일로 저장했습니다.');
 }
-export async function importFile(file?: File) {
+export async function importFile(file?: File, kind: 'work' | 'data' = 'work') {
   if (!file) return;
   if (state.dirty && !confirm('저장하지 않은 변경이 있습니다. 버리고 불러올까요?')) return;
   try {
     if (file.size > 10 * 1024 * 1024) throw new Error('10MB 이하 문서만 열 수 있습니다.');
     const input = JSON.parse(await file.text());
-    loadDocument(
-      input?.format === 'phaser-editor/slot-layout'
-        ? validateSlotPackage(input).editorDocument
-        : input,
-    );
+    const isPackage = input?.format === 'phaser-editor/slot-layout';
+    if (kind === 'work' && isPackage)
+      throw new Error('게임 데이터 파일입니다. 데이터 Import를 사용하세요.');
+    if (kind === 'data' && !isPackage)
+      throw new Error(
+        '지원하는 게임 데이터 패키지가 아닙니다. 에디터 문서는 작업 불러오기를 사용하세요.',
+      );
+    loadDocument(isPackage ? validateSlotPackage(input).editorDocument : input);
+    if (kind === 'data') {
+      state.saved = '';
+      state.dirty = true;
+      log('게임 데이터를 작업으로 가져왔습니다. 작업 저장으로 편집 문서를 보관하세요.');
+    }
   } catch (e) {
     log((e as Error).message, '오류');
   }
@@ -264,6 +317,9 @@ export async function importGamePackage() {
       data = await r.json();
     if (!r.ok) throw new Error(data.error);
     loadDocument(validateSlotPackage(data).editorDocument);
+    state.saved = '';
+    state.dirty = true;
+    log('게임 적용본을 작업으로 가져왔습니다. 작업 저장이 필요합니다.');
   } catch (error) {
     log((error as Error).message, '오류');
   }
@@ -313,6 +369,105 @@ export async function importSlotLayout() {
     );
   } catch (e) {
     log((e as Error).message, '오류');
+  }
+}
+export async function openProjectScene(
+  project: EditorProject | undefined,
+  scene: ProjectScene | undefined,
+  mode: 'original' | 'applied' | 'example' = 'original',
+) {
+  if (state.dirty && !confirm('저장하지 않은 변경이 있습니다. 버리고 선택한 화면을 열까요?'))
+    return false;
+  const previousRoot = state.project;
+  try {
+    let assets: Asset[] = [],
+      root = '';
+    if (scene) {
+      const response = await fetch('/api/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Editor-Request': '1' },
+        body: JSON.stringify({ root: scene.assetRoot }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      const catalog = await fetch('/api/catalog'),
+        data = await catalog.json();
+      if (!catalog.ok) throw new Error(data.error);
+      assets = data.assets;
+      root = data.root;
+    }
+    let doc: SceneDocument;
+    if (mode === 'example') doc = demoDocument();
+    else if (scene?.kind === 'slot-layout') {
+      const url = mode === 'applied' ? '/api/slot-game-package' : '/api/slot-layout';
+      const response = await fetch(`${url}?orientation=${scene.orientation}`),
+        data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      doc =
+        mode === 'applied'
+          ? validateDocument(validateSlotPackage(data).editorDocument)
+          : convertSlotLayout(data);
+    } else
+      doc = {
+        schemaVersion: 1,
+        id: crypto.randomUUID(),
+        name: `${project?.name || '새 프로젝트'} · 에셋 작업 화면`,
+        designSize: { width: 1280, height: 720 },
+        roots: [],
+        nodes: {},
+        animations: [],
+      };
+    if (mode === 'original' && scene?.kind === 'slot-layout' && project) {
+      const screen = ensureScreen(doc);
+      screen.modes[0].name = scene.orientation === 'landscape' ? '가로' : '세로';
+      for (const other of project.scenes.filter(
+        (s) => s.kind === 'slot-layout' && s.id !== scene.id,
+      )) {
+        try {
+          const response = await fetch(`/api/slot-layout?orientation=${other.orientation}`);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error);
+          screen.modes.push({
+            id: other.id,
+            name: other.orientation === 'landscape' ? '가로' : '세로',
+            layout: layoutData(convertSlotLayout(data)),
+          });
+        } catch (error) {
+          log(`추가 배치 모드를 열지 못했습니다: ${(error as Error).message}`, '경고');
+        }
+      }
+      if (screen.modes.length > 1) screen.behavior = 'responsive';
+    }
+    loadDocument(doc);
+    state.assets = assets;
+    state.project = root;
+    state.activeProject = project || null;
+    state.activeScene = scene || null;
+    state.hasOpenDocument = true;
+    state.projectPickerOpen = false;
+    state.playing = true;
+    if (project)
+      try {
+        const recent: string[] = JSON.parse(localStorage.getItem('projects:recent') || '[]');
+        localStorage.setItem(
+          'projects:recent',
+          JSON.stringify([project.root, ...recent.filter((p) => p !== project.root)].slice(0, 8)),
+        );
+      } catch {
+        /* 최근 목록 오류는 프로젝트 열기를 막지 않습니다. */
+      }
+    log(
+      `${project?.name || '예제'} · ${mode === 'example' ? '승자승 연출' : scene?.name || '빈 화면'} 열기 완료`,
+    );
+    return true;
+  } catch (error) {
+    if (previousRoot)
+      await fetch('/api/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Editor-Request': '1' },
+        body: JSON.stringify({ root: previousRoot }),
+      }).catch(() => {});
+    throw error;
   }
 }
 export function playTimeline() {

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { parentOf, type Transform } from '../core/document';
-import { moveParent, patchNode, selected, state } from '../editor/store';
+import { moveParent, patchNode, selected, state, selectedIds } from '../editor/store';
+import { gameExportStatus, nodeGameSupport } from '../integration/gameSupport';
+import AssetReferenceEditor from './AssetReferenceEditor.vue';
+const gameStatus = computed(() => gameExportStatus(state.doc));
+const nodeSupport = computed(() => nodeGameSupport(state.doc, state.selected));
 const parents = computed(() =>
   Object.values(state.doc.nodes).filter((n) => n.kind === 'group' && n.id !== state.selected),
 );
@@ -22,10 +26,27 @@ function number(event: Event) {
 </script>
 <template>
   <div class="panel inspector" v-if="selected">
+    <p v-if="selectedIds.length > 1" class="hint">
+      {{ selectedIds.length }}개 선택 중 · 아래 속성과 복제·삭제는 마지막 선택 객체에 적용됩니다.
+      함께 이동하려면 화면에서 드래그하세요.
+    </p>
     <div class="node-heading">
       <span class="badge">{{ selected.kind }}</span
       ><strong>{{ selected.name }}</strong>
     </div>
+    <section class="game-support" aria-label="게임 적용 범위" aria-live="polite">
+      <h3>{{ nodeSupport.title }}</h3>
+      <p>{{ nodeSupport.supported }}</p>
+      <p class="hint">{{ nodeSupport.limited }}</p>
+      <strong>{{
+        gameStatus.ready ? '현재 화면: 내보내기 가능' : '현재 화면: 게임 적용 제한'
+      }}</strong>
+      <p>{{ gameStatus.message }}</p>
+      <p class="hint">
+        현재 배치 모드의 내보내기 검증 결과입니다. 게임 저장·실행 확인은 별도입니다. 장면 JSON
+        저장은 계속 사용할 수 있습니다.
+      </p>
+    </section>
     <label
       >이름<input
         aria-label="노드 이름"
@@ -166,6 +187,7 @@ function number(event: Event) {
       </div>
       <p class="hint">노드당 최대 500개 · 비활성 시 기존 입자 제거</p></template
     >
+    <AssetReferenceEditor />
     <template v-if="selected.asset"
       ><h3>에셋 참조</h3>
       <p class="asset-path">{{ selected.asset }}</p></template
@@ -176,3 +198,18 @@ function number(event: Event) {
   </div>
   <div class="empty panel" v-else>계층 또는 화면에서 노드를 선택하세요.</div>
 </template>
+<style scoped>
+.game-support {
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  padding: 10px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.game-support h3 {
+  margin-top: 0;
+}
+.game-support p {
+  line-height: 1.5;
+}
+</style>

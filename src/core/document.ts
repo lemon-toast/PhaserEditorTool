@@ -60,13 +60,75 @@ export interface SceneDocument {
   roots: string[];
   nodes: Record<string, SceneNode>;
   animations: Animation[];
+  screen?: {
+    behavior: 'fixed' | 'responsive';
+    activeMode: string;
+    modes: LayoutMode[];
+  };
   source?: {
     adapter: 'slot-client';
     gameCode: 'SLOT_1002';
     orientation: 'landscape' | 'portrait';
     fingerprint: string;
+    designSize?: { width: number; height: number };
     baseline: { roots: string[]; nodes: Record<string, SceneNode> };
   };
+}
+export type LayoutData = Pick<
+  SceneDocument,
+  'designSize' | 'roots' | 'nodes' | 'animations' | 'source'
+>;
+export interface LayoutMode {
+  id: string;
+  name: string;
+  // 활성 모드는 문서 본문을 사용하고, 비활성 모드만 별도 배치를 보관합니다.
+  layout?: LayoutData;
+}
+export function layoutData(doc: LayoutData): LayoutData {
+  return clone({
+    designSize: doc.designSize,
+    roots: doc.roots,
+    nodes: doc.nodes,
+    animations: doc.animations,
+    ...(doc.source ? { source: doc.source } : {}),
+  });
+}
+export function ensureScreen(doc: SceneDocument) {
+  return (doc.screen ||= {
+    behavior: 'fixed',
+    activeMode: 'default',
+    modes: [
+      { id: 'default', name: doc.designSize.width >= doc.designSize.height ? '가로' : '세로' },
+    ],
+  });
+}
+export function switchLayoutMode(doc: SceneDocument, id: string) {
+  const screen = ensureScreen(doc);
+  if (screen.activeMode === id) return;
+  const current = screen.modes.find((mode) => mode.id === screen.activeMode),
+    next = screen.modes.find((mode) => mode.id === id);
+  if (!current || !next?.layout) throw new Error('없는 배치 모드입니다.');
+  current.layout = layoutData(doc);
+  const layout = layoutData(next.layout);
+  delete doc.source;
+  Object.assign(doc, layout);
+  delete next.layout;
+  screen.activeMode = id;
+}
+export function addLayoutMode(doc: SceneDocument, name: string, size: SceneDocument['designSize']) {
+  const screen = ensureScreen(doc),
+    trimmed = name.trim();
+  if (!trimmed || trimmed.length > 40) throw new Error('모드 이름은 1~40자로 입력하세요.');
+  if (screen.modes.some((mode) => mode.name === trimmed))
+    throw new Error('같은 이름의 모드가 있습니다.');
+  if (screen.modes.length >= 8) throw new Error('배치 모드는 8개까지 지원합니다.');
+  const id = crypto.randomUUID(),
+    layout = layoutData(doc);
+  layout.designSize = clone(size);
+  // 복사한 모드는 원본 게임 layout에 대한 역적용 대상으로 취급하지 않습니다.
+  delete layout.source;
+  screen.modes.push({ id, name: trimmed, layout });
+  switchLayoutMode(doc, id);
 }
 export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 export function createNode(kind: Kind, name = ''): SceneNode {
@@ -309,6 +371,43 @@ export function validateDocument(value: unknown): SceneDocument {
         )
           fail('같은 속성의 연출 트랙이 겹칩니다.');
       }
+  }
+  if (d.screen !== undefined) {
+    const screen = d.screen;
+    if (
+      !screen ||
+      !['fixed', 'responsive'].includes(screen.behavior) ||
+      typeof screen.activeMode !== 'string' ||
+      !Array.isArray(screen.modes) ||
+      screen.modes.length < 1 ||
+      screen.modes.length > 8
+    )
+      fail('화면 모드 설정이 잘못되었습니다.');
+    const modeIds = new Set<string>(),
+      names = new Set<string>();
+    for (const mode of screen.modes) {
+      if (
+        !mode ||
+        typeof mode.id !== 'string' ||
+        !mode.id ||
+        modeIds.has(mode.id) ||
+        typeof mode.name !== 'string' ||
+        !mode.name.trim() ||
+        mode.name.length > 40 ||
+        names.has(mode.name)
+      )
+        fail('배치 모드 ID 또는 이름이 잘못되었습니다.');
+      modeIds.add(mode.id);
+      names.add(mode.name);
+      if (mode.id === screen.activeMode) {
+        if (mode.layout !== undefined) fail('활성 모드는 현재 문서의 배치를 사용해야 합니다.');
+      } else {
+        if (!mode.layout || Object.hasOwn(mode.layout, 'screen'))
+          fail('배치 모드 데이터가 잘못되었습니다.');
+        validateDocument({ ...mode.layout, schemaVersion: 1, id: mode.id, name: mode.name });
+      }
+    }
+    if (!modeIds.has(screen.activeMode)) fail('활성 배치 모드가 없습니다.');
   }
   return clone(d);
 }

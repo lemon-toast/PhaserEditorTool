@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import {
   DockviewVue,
   themeDark,
@@ -13,18 +13,16 @@ import AssetsPanel from './components/AssetsPanel.vue';
 import AnimationPanel from './components/AnimationPanel.vue';
 import ConsolePanel from './components/ConsolePanel.vue';
 import ScenePanel from './components/ScenePanel.vue';
+import ProjectHome from './components/ProjectHome.vue';
 import {
   advance,
   download,
-  edit,
   importFile,
-  importSlotLayout,
   downloadGamePackage,
   applyToSlotGame,
   importGamePackage,
   log,
   redo,
-  refreshAssets,
   state,
   undo,
 } from './editor/store';
@@ -40,7 +38,14 @@ let api: DockviewApi,
   disposeLayout: (() => void) | undefined,
   frame = 0,
   last = 0;
+let disposeDesktop: (() => void) | undefined;
+watch(
+  () => state.dirty,
+  (dirty) => window.editorDesktop?.reportUnsavedChanges(dirty),
+  { immediate: true },
+);
 const fileInput = ref<HTMLInputElement>(),
+  fileKind = ref<'work' | 'data'>('work'),
   panelChoice = ref(''),
   workspaceName = ref('기본 작업 배치'),
   presets = ref<string[]>([]);
@@ -106,6 +111,7 @@ function restore(value: unknown) {
   api.fromJSON(data);
 }
 function ready(e: DockviewReadyEvent) {
+  disposeLayout?.();
   api = e.api;
   try {
     const raw = localStorage.getItem('workspace:last');
@@ -165,6 +171,7 @@ function beforeUnload(e: BeforeUnloadEvent) {
   }
 }
 function keyboard(e: KeyboardEvent) {
+  if (state.projectPickerOpen) return;
   if (!(e.ctrlKey || e.metaKey)) return;
   const key = e.key.toLowerCase();
   if (key === 's') {
@@ -178,14 +185,16 @@ function keyboard(e: KeyboardEvent) {
   }
 }
 onMounted(() => {
-  void refreshAssets();
+  disposeDesktop = window.editorDesktop?.onShowProjects(() => {
+    state.projectPickerOpen = true;
+  });
   try {
     listPresets();
   } catch {}
   window.addEventListener('beforeunload', beforeUnload);
   window.addEventListener('keydown', keyboard);
   const tick = (now: number) => {
-    if (last) advance(Math.min(100, now - last));
+    if (last && !state.projectPickerOpen) advance(Math.min(100, now - last));
     last = now;
     frame = requestAnimationFrame(tick);
   };
@@ -194,12 +203,14 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(frame);
   disposeLayout?.();
+  disposeDesktop?.();
   window.removeEventListener('beforeunload', beforeUnload);
   window.removeEventListener('keydown', keyboard);
 });
 </script>
 <template>
-  <div class="app-shell">
+  <ProjectHome v-if="state.projectPickerOpen" />
+  <div v-else class="app-shell">
     <header class="app-header">
       <div class="brand-mark">P<span>e</span></div>
       <div class="brand-copy">
@@ -210,22 +221,45 @@ onBeforeUnmount(() => {
       ><span class="spacer"></span><span class="version-chip">개발 버전 0.1</span>
     </header>
     <nav class="main-toolbar">
-      <button @click="fileInput?.click()">↥ 가져오기</button
-      ><button class="accent" @click="download">↧ 저장 / 내보내기</button
+      <button @click="state.projectPickerOpen = true">프로젝트 / 화면 선택</button>
+      <span>작업</span>
+      <button
+        @click="
+          fileKind = 'work';
+          fileInput?.click();
+        "
+      >
+        작업 불러오기</button
+      ><button
+        class="accent"
+        @click="download"
+        title="편집 문서를 .scene.json 파일로 저장 · Ctrl/⌘ S"
+      >
+        작업 저장</button
       ><input
         ref="fileInput"
         hidden
         type="file"
         accept=".json"
         @change="
-          importFile(($event.target as HTMLInputElement).files?.[0]);
+          importFile(($event.target as HTMLInputElement).files?.[0], fileKind);
           ($event.target as HTMLInputElement).value = '';
         "
       />
-      <button @click="importSlotLayout">슬롯 배치</button>
-      <button @click="downloadGamePackage">게임용 내보내기</button>
-      <button @click="applyToSlotGame" :disabled="!state.doc.source">슬롯에 적용</button>
-      <button @click="importGamePackage">게임 적용본</button><span class="toolbar-separator"></span
+      <span class="toolbar-separator"></span><span>데이터</span>
+      <button
+        @click="
+          fileKind = 'data';
+          fileInput?.click();
+        "
+      >
+        데이터 Import
+      </button>
+      <button :disabled="!state.doc.source" @click="downloadGamePackage">데이터 Export</button>
+      <button v-if="state.doc.source" @click="applyToSlotGame">슬롯에 적용</button>
+      <button v-if="state.activeProject?.kind === 'slot'" @click="importGamePackage">
+        게임 적용본</button
+      ><span class="toolbar-separator"></span
       ><button @click="undo" :disabled="!state.canUndo" title="Ctrl/⌘ Z">↶ 실행 취소</button
       ><button @click="redo" :disabled="!state.canRedo" title="Ctrl/⌘ Shift Z">↷ 다시 실행</button
       ><span class="toolbar-separator"></span>
@@ -241,23 +275,6 @@ onBeforeUnmount(() => {
         <option v-for="(title, id) in titles" :key="id" :value="id">{{ title }}</option></select
       ><button @click="floatActive">패널 띄우기</button
       ><button @click="maximize">최대화 / 복원</button><button @click="defaults">기본 배치</button>
-      <span class="spacer"></span
-      ><select
-        aria-label="화면 방향"
-        :value="
-          state.doc.designSize.width >= state.doc.designSize.height ? 'landscape' : 'portrait'
-        "
-        @change="
-          edit((doc) => {
-            const w = doc.designSize.width,
-              h = doc.designSize.height;
-            doc.designSize = { width: h, height: w };
-          })
-        "
-      >
-        <option value="landscape">가로 화면</option>
-        <option value="portrait">세로 화면</option>
-      </select>
     </nav>
     <DockviewVue
       class="workspace"

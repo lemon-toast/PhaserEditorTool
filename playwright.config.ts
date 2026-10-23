@@ -4,7 +4,7 @@ export default defineConfig({
   timeout: 45000,
   workers: 1,
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:5183',
     channel: 'chrome',
     viewport: { width: 1500, height: 950 },
     launchOptions: {
@@ -14,8 +14,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm run dev',
-      url: 'http://127.0.0.1:5173',
+      command: 'npm run dev -- --port 5183',
+      url: 'http://127.0.0.1:5183',
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
     },

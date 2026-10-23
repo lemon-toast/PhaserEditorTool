@@ -15,7 +15,8 @@ test('에디터 수정 → 실제 슬롯 import → resize 후 유지 → 재imp
     });
   try {
     await page.goto('/');
-    await page.getByRole('button', { name: '슬롯 배치', exact: true }).click();
+    await page.getByRole('button', { name: '프로젝트 SlotClient', exact: true }).click();
+    await page.getByRole('button', { name: '선택한 화면 열기 →', exact: true }).click();
     await page.locator('[data-node="art.front.0"]').click();
     const field = page.getByRole('spinbutton', { name: '위치 X', exact: true });
     await field.fill('777.5');

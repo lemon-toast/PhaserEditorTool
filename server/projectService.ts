@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exportSlotDocument } from '../src/integration/exportSlot';
 import { applySlotPackage, validateSlotPackage } from '../src/integration/slotRuntime';
+import { inspectProject, knownProjects } from './projects';
 
 async function gameLayoutDirectory(slotRoot: string) {
   const game = await realpath(path.resolve(slotRoot, '..')),
@@ -109,6 +110,18 @@ export function projectService(): Plugin {
           res.end(JSON.stringify(data));
         };
         try {
+          if (url.pathname === '/api/projects' && req.method === 'GET')
+            return json(await knownProjects(path.resolve(slotRoot, '../../../..')));
+          if (url.pathname === '/api/projects/inspect' && req.method === 'POST') {
+            if (req.headers['x-editor-request'] !== '1')
+              throw new Error('잘못된 프로젝트 요청입니다.');
+            let body = '';
+            for await (const chunk of req) {
+              body += chunk;
+              if (body.length > 4096) throw new Error('요청이 너무 큽니다.');
+            }
+            return json(await inspectProject(JSON.parse(body).root));
+          }
           if (url.pathname === '/api/slot-game-package') {
             if ((await realpath(root)) !== (await realpath(slotRoot)))
               throw new Error('SLOT_1002 에셋 폴더를 연결하세요.');

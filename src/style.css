@@ -317,6 +317,21 @@ input[type='range'] {
 }
 .scene-tools button {
   font-size: 10px;
+  flex-shrink: 0;
+}
+.scene-tools {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 36px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.scene-mode {
+  color: #8a9eb7;
+}
+.scene-zoom {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .scene-canvas {
   flex: 1;
@@ -325,6 +340,80 @@ input[type='range'] {
 }
 .scene-canvas canvas {
   display: block;
+}
+.screen-controls,
+.screen-size-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.screen-controls {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-bottom: 1px solid #303948;
+  background: #171e2a;
+  font-size: 11px;
+}
+.screen-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.screen-size-form input {
+  width: 74px;
+}
+.screen-size-form select[aria-label='배치 모드'] {
+  max-width: 150px;
+}
+.screen-note {
+  color: #8a9eb7;
+  font-size: 10px;
+}
+.screen-error {
+  width: 100%;
+  color: #ffa9a9;
+  margin: 4px 0;
+}
+.mode-dialog {
+  width: min(460px, 90vw);
+  border: 1px solid #4f627b;
+  border-radius: 10px;
+  background: #1b2330;
+  color: #d7deeb;
+  padding: 24px;
+}
+.mode-dialog::backdrop {
+  background: #0009;
+}
+.mode-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mode-dialog h2,
+.mode-dialog p {
+  margin: 0;
+}
+.mode-dialog p {
+  line-height: 1.6;
+  color: #a6b4c8;
+}
+.mode-dialog label {
+  flex-direction: column;
+  align-items: stretch;
+}
+.mode-dimensions {
+  display: flex;
+  gap: 12px;
+}
+.mode-dimensions input {
+  width: 100%;
+}
+.mode-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .live-dot {
   width: 6px;
@@ -496,6 +585,247 @@ input[type='range'] {
   display: grid;
   place-items: center;
   color: #869db6;
+}
+.project-home {
+  height: 100dvh;
+  overflow: auto;
+  background: radial-gradient(ellipse at 80% 0%, #223d3d55, transparent 55%), #121923;
+  color: #d7deeb;
+}
+.home-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 23px 42px;
+  border-bottom: 1px solid #2e3b49;
+}
+.home-header strong {
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+.home-header p {
+  margin: 5px 0 0;
+  color: #8a9eb4;
+  font-size: 11px;
+}
+.home-content {
+  max-width: 1250px;
+  margin: auto;
+  padding: 42px;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #8cdac3;
+}
+.home-intro h1 {
+  font-size: 30px;
+  margin: 13px 0;
+  color: #e0e9f3;
+  letter-spacing: -1px;
+}
+.home-intro p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #93a5bb;
+}
+.project-columns {
+  display: grid;
+  grid-template-columns: minmax(340px, 1.1fr) minmax(320px, 1fr);
+  gap: 30px;
+  margin-top: 35px;
+}
+.project-list,
+.scene-chooser {
+  min-width: 0;
+  background: #1a2330bd;
+  border: 1px solid #303e4f;
+  border-radius: 10px;
+  padding: 20px;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 19px;
+}
+.section-heading h2 {
+  font-size: 13px;
+  margin: 0;
+  color: #d8e2ee;
+}
+.section-heading > span {
+  font-size: 11px;
+  color: #8ca1bb;
+}
+.project-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 18px 14px;
+  margin-bottom: 10px;
+  border: 1px solid #354354;
+  background: #202b3a;
+  border-radius: 7px;
+  white-space: normal;
+}
+.project-card.chosen,
+.scene-choice.chosen {
+  border-color: #76c9b0;
+  background: #29423e;
+}
+.project-card > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.project-card strong {
+  font-size: 15px;
+}
+.project-card small {
+  font-size: 10px;
+  color: #a6b8cb;
+  line-height: 1.7;
+}
+.project-card code {
+  font-size: 10px;
+  color: #7895ad;
+  word-break: break-all;
+}
+.project-card b {
+  color: #91e7ca;
+}
+.project-symbol {
+  font-size: 26px;
+  color: #9ed8c8;
+  width: 35px;
+  text-align: center;
+}
+.folder-form {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 20px;
+  align-items: flex-end;
+}
+.folder-form label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 10px;
+  color: #91a8bf;
+}
+.folder-form input {
+  width: 100%;
+}
+.scene-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 12px;
+  padding: 18px;
+  background: #202b3a;
+  border-radius: 7px;
+  white-space: normal;
+}
+.scene-choice > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.scene-choice strong {
+  font-size: 13px;
+}
+.scene-choice small {
+  font-size: 10px;
+  color: #99aec4;
+  line-height: 1.7;
+}
+.scene-outline {
+  display: block;
+  width: 50px;
+  height: 30px;
+  border: 2px solid #8faac3;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.scene-outline.portrait {
+  width: 22px;
+  height: 38px;
+  margin: 0 14px;
+}
+.open-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 17px 0;
+  color: #adbfd1;
+  font-size: 11px;
+}
+.open-mode label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.open-mode input {
+  accent-color: #8adebf;
+}
+.muted {
+  opacity: 0.45;
+}
+.open-project-button {
+  margin-top: 10px;
+  width: 100%;
+  font-size: 13px;
+  padding: 12px;
+  background: #397461;
+  border-color: #65a68f;
+  color: #d5f6e8;
+}
+.open-project-button:hover {
+  background: #478b76;
+}
+.home-error {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #774450;
+  background: #492d38;
+  border-radius: 5px;
+  color: #f0b3bd;
+  line-height: 1.8;
+  font-size: 11px;
+}
+.home-examples {
+  margin-top: 28px;
+  padding: 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid #2c3b4c;
+  color: #93a7bd;
+  font-size: 11px;
+}
+.home-examples small {
+  font-size: 10px;
+  color: #6f8ba5;
+}
+@media (max-width: 1000px) {
+  .home-content {
+    padding: 28px;
+  }
+  .project-columns {
+    gap: 15px;
+  }
+  .home-header {
+    padding: 20px 28px;
+  }
 }
 .dv-tab {
   min-width: 75px;

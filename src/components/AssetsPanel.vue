@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { add, connectProject, refreshAssets, state } from '../editor/store';
+import { add, refreshAssets, state } from '../editor/store';
 const search = ref(''),
   type = ref('all');
 const assets = computed(() =>
@@ -13,8 +13,7 @@ const assets = computed(() =>
     .slice(0, 180),
 );
 function connect() {
-  const root = prompt('게임 에셋 폴더의 절대 경로를 입력하세요.', state.project);
-  if (root) void connectProject(root);
+  state.projectPickerOpen = true;
 }
 </script>
 <template>
@@ -28,7 +27,7 @@ function connect() {
         <option value="all">전체</option>
         <option value="image">이미지</option>
         <option value="spine">Spine</option></select
-      ><button @click="connect">폴더 연결</button
+      ><button @click="connect">프로젝트 선택</button
       ><button @click="refreshAssets" :disabled="state.loading">새로고침</button
       ><button @click="add('particle')">＋ 파티클</button
       ><button @click="add('text')">＋ 텍스트</button>

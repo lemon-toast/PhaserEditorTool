@@ -245,6 +245,7 @@ export function convertSlotLayout(raw: {
     gameCode: 'SLOT_1002',
     orientation: raw.designSize.width > raw.designSize.height ? 'landscape' : 'portrait',
     fingerprint: layoutFingerprint(raw.layout),
+    designSize: clone(raw.designSize),
     baseline: clone({ roots: doc.roots, nodes: doc.nodes }),
   };
   return validateDocument(doc);

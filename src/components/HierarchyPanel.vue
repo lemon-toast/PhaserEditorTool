@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { activeInHierarchy, flatten, type Kind } from '../core/document';
-import { add, duplicate, patchNode, remove, reorder, state } from '../editor/store';
+import {
+  add,
+  duplicate,
+  patchNode,
+  remove,
+  reorder,
+  state,
+  selectedIds,
+  selectNode,
+} from '../editor/store';
 const collapsed = ref(new Set<string>());
 const rows = computed(() => {
   const result = [];
@@ -38,22 +47,22 @@ function toggle(id: string) {
     <div class="caption">
       장면 구성 <span>{{ Object.keys(state.doc.nodes).length }}</span>
     </div>
-    <div class="tree" role="tree">
+    <div class="tree" role="tree" aria-multiselectable="true">
       <div
         v-for="{ node, depth } in rows"
         :key="node.id"
         :data-node="node.id"
         class="tree-row"
         :class="{
-          selected: state.selected === node.id,
+          selected: selectedIds.includes(node.id),
           inactive: !activeInHierarchy(state.doc, node.id),
         }"
         :style="{ paddingLeft: `${10 + depth * 16}px` }"
         role="treeitem"
-        :aria-selected="state.selected === node.id"
+        :aria-selected="selectedIds.includes(node.id)"
         tabindex="0"
-        @click="state.selected = node.id"
-        @keydown.enter="state.selected = node.id"
+        @click="selectNode(node.id, $event.ctrlKey || $event.metaKey || $event.shiftKey)"
+        @keydown.enter="selectNode(node.id, $event.ctrlKey || $event.metaKey || $event.shiftKey)"
       >
         <button
           class="disclosure"

@@ -52,6 +52,15 @@ export function exportSlotDocument(input: unknown): SlotPackage {
     throw new Error(
       '먼저 슬롯 배치를 가져오세요. 일반 장면의 게임 역적용은 아직 지원하지 않습니다.',
     );
+  const originalSize =
+    source.designSize ||
+    (source.orientation === 'landscape'
+      ? { width: 1920, height: 1080 }
+      : { width: 1080, height: 1920 });
+  if (doc.designSize.width !== originalSize.width || doc.designSize.height !== originalSize.height)
+    throw new Error(
+      '기준 해상도를 변경한 모드의 게임 적용은 아직 지원하지 않습니다. 장면 JSON으로 저장하거나 원본 해상도로 복원하세요.',
+    );
   const base = validateDocument({
     ...doc,
     source: undefined,
@@ -135,6 +144,8 @@ export function exportSlotDocument(input: unknown): SlotPackage {
     throw new Error(
       `현재 게임 역적용은 장식 이미지·배경·캐릭터·릴 Spine을 지원합니다. 미지원 수정: ${unsupported.join(', ')}`,
     );
+  const editorDocument = clone(doc);
+  delete editorDocument.screen;
   const pack: SlotPackage = {
     format: 'phaser-editor/slot-layout',
     version: 1,
@@ -143,7 +154,7 @@ export function exportSlotDocument(input: unknown): SlotPackage {
     designSize: clone(doc.designSize),
     fingerprint: source.fingerprint,
     patches,
-    editorDocument: doc,
+    editorDocument,
   };
   return validateSlotPackage(pack);
 }
